@@ -17,7 +17,7 @@ public class RegionMatcher {
     @Setter
     private static boolean compareImportance = true;
     @Setter
-    private static boolean matchUnavailable = true;
+    private static boolean matchUnavailable = false;
     @Setter
     private static boolean fitUnavailable = true;
     @Setter
@@ -32,7 +32,7 @@ public class RegionMatcher {
     private static Map<Character, Set<Integer>> provinceMap = new HashMap<>();
     private static Map<Character, Set<Integer>> cityMap = new HashMap<>();
     private static Map<Character, Set<Integer>> districtMap = new HashMap<>();
-    //private static Map<Character, Set<Integer>> fullMap = new HashMap<>();
+    private static Map<Character, Set<Integer>> fullMap = new HashMap<>();
 
     private static RegionComparator defaultComparator = new RegionComparator(-1D, -1D);
 
@@ -54,17 +54,18 @@ public class RegionMatcher {
                 regionMap.put(region.getCode(), region);
                 int code = region.getCode();
                 buildIndex(code, region.getProvinceName(), provinceMap);
+                buildIndex(code, region.getProvinceName(), fullMap);
                 buildIndex(code, region.getCityName(), cityMap);
-                //buildIndex(code, region.getProvinceName(), fullMap);
-                //buildIndex(code, region.getCityName(), fullMap);
+                buildIndex(code, region.getCityName(), fullMap);
+                buildIndex(code, region.getDistrictName(), districtMap);
+                buildIndex(code, region.getDistrictName(), fullMap);
                 for (String str : region.getHistoryCityNames()) {
                     buildIndex(code, str, cityMap);
-                    //buildIndex(code, str, fullMap);
+                    buildIndex(code, str, fullMap);
                 }
-                buildIndex(code, region.getDistrictName(), districtMap);
                 for (String str : region.getHistoryDistrictNames()) {
                     buildIndex(code, str, districtMap);
-                    //buildIndex(code, str, fullMap);
+                    buildIndex(code, str, fullMap);
                 }
             }
         } catch (Exception e) {
@@ -75,7 +76,7 @@ public class RegionMatcher {
     public static void init() {
         new RegionMatcher();
         compareImportance = true;
-        matchUnavailable = true;
+        matchUnavailable = false;
         fitUnavailable = true;
         removeSuffix = true;
         shuffle = true;
@@ -102,10 +103,28 @@ public class RegionMatcher {
                                        String district,
                                        final double longitude,
                                        final double latitude) {
-        List<MatchResult> resultList = doMatch(province, city, district);
+        List<MatchResult> resultList = detailMatch(province, city, district);
         if (resultList.isEmpty() && shuffle) {
             resultList = shuffleMatch(province, city, district);
         }
+        return chooseResult(resultList, longitude, latitude);
+    }
+
+    public static MatchResult byInput(String input) {
+        return byInput(input, -1D, -1D);
+    }
+
+
+    public static MatchResult byInput(String input,
+                                      double longitude,
+                                      double latitude) {
+        List<MatchResult> resultList = inputMatch(input);
+        return chooseResult(resultList, longitude, latitude);
+    }
+
+    private static MatchResult chooseResult(List<MatchResult> resultList,
+                                            double longitude,
+                                            double latitude) {
         if (resultList.isEmpty()) {
             return new MatchResult();
         }
@@ -134,6 +153,81 @@ public class RegionMatcher {
         return matchResult;
     }
 
+    private static List<MatchResult> inputMatch(String input) {
+        Set<Integer> targetSet = searchIndex(input, fullMap);
+        if (targetSet.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String full;
+        List<MatchResult> resultList = new ArrayList<>();
+        for (int code : targetSet) {
+            Region region = regionMap.get(code);
+            if (region == null || (!matchUnavailable && !region.isAvailable())) {
+                continue;
+            }
+            full = region.getProvinceName()
+                    + region.getCityName()
+                    + region.getDistrictName();
+            int cityOrder;
+            int districtOrder;
+            boolean available = checkOrder(full, input);
+            for (cityOrder = 0; cityOrder < region
+                    .getHistoryCityNames().size() && !available; cityOrder++) {
+                String historyCityName = region.getHistoryCityNames().get(cityOrder);
+                full = region.getProvinceName()
+                        + historyCityName
+                        + region.getDistrictName();
+                available = checkOrder(full, input);
+            }
+            for (districtOrder = 0; districtOrder < region
+                    .getHistoryDistrictNames().size() && !available; districtOrder++) {
+                String historyDistrictName = region.getHistoryDistrictNames().get(districtOrder);
+                full = region.getProvinceName()
+                        + region.getCityName()
+                        + historyDistrictName;
+                available = checkOrder(full, input);
+            }
+            for (cityOrder = 0; cityOrder < region
+                    .getHistoryCityNames().size() && !available; cityOrder++) {
+                String historyCityName = region.getHistoryCityNames().get(cityOrder);
+                for (districtOrder = 0; districtOrder < region
+                        .getHistoryDistrictNames().size() && !available; districtOrder++) {
+                    String historyDistrictName = region
+                            .getHistoryDistrictNames().get(districtOrder);
+                    full = region.getProvinceName()
+                            + historyCityName
+                            + historyDistrictName;
+                    available = checkOrder(full, input);
+                }
+            }
+            if (available) {
+                resultList.add(calcProbability(region, full, cityOrder, districtOrder, input));
+            }
+        }
+        return resultList;
+    }
+
+    private static MatchResult calcProbability(Region region,
+                                               String matched,
+                                               int cityOrder,
+                                               int districtOrder,
+                                               String input) {
+        double probability = 1 - editDistance(matched, input)
+                / (double) Math.max(matched.length(), input.length());
+        if (!region.getHistoryCityNames().isEmpty()) {
+            probability *= (Math.sqrt(1.0D - Math.pow((double) cityOrder
+                    / region.getHistoryCityNames().size(), 2)));
+        }
+        if (!region.getHistoryDistrictNames().isEmpty()) {
+            probability *= (Math.sqrt(1.0D - Math.pow((double) districtOrder
+                    / region.getHistoryDistrictNames().size(), 2)));
+        }
+        MatchResult matchResult = new MatchResult();
+        matchResult.setRegion(region);
+        matchResult.setProbability(probability);
+        return matchResult;
+    }
+
     @SuppressWarnings("ConstantConditions")
     private static List<MatchResult> shuffleMatch(String province,
                                                   String city,
@@ -145,30 +239,30 @@ public class RegionMatcher {
         Set<MatchResult> resultSet = new HashSet<>();
         if (hasProvince && !hasCity && !hasDistrict) {
             // 省->市
-            resultSet.addAll(doMatch("", province, ""));
+            resultSet.addAll(detailMatch("", province, ""));
             // 省->区
-            resultSet.addAll(doMatch("", "", province));
+            resultSet.addAll(detailMatch("", "", province));
         } else if (!hasProvince && hasCity && !hasDistrict) {
             // 市->区
-            resultSet.addAll(doMatch("", "", city));
+            resultSet.addAll(detailMatch("", "", city));
         } else if (!hasProvince && !hasCity && hasDistrict) {
             // 区->市
-            resultSet.addAll(doMatch("", district, ""));
+            resultSet.addAll(detailMatch("", district, ""));
         } else if (hasProvince && hasCity && !hasDistrict) {
             // 省市->省区
-            resultSet.addAll(doMatch(province, "", city));
+            resultSet.addAll(detailMatch(province, "", city));
             // 省市->市区
-            resultSet.addAll(doMatch("", "", ""));
+            resultSet.addAll(detailMatch("", "", ""));
         } else if (hasProvince && !hasCity && hasDistrict) {
             // 省区->省市
-            resultSet.addAll(doMatch(province, district, ""));
+            resultSet.addAll(detailMatch(province, district, ""));
             // 省区->市区
-            resultSet.addAll(doMatch("", province, district));
+            resultSet.addAll(detailMatch("", province, district));
         } else if (!hasProvince && hasCity && hasDistrict) {
             // 市区->省区
-            resultSet.addAll(doMatch(city, "", district));
+            resultSet.addAll(detailMatch(city, "", district));
             // 市区->省市
-            resultSet.addAll(doMatch(city, district, ""));
+            resultSet.addAll(detailMatch(city, district, ""));
         }
         List<MatchResult> resultList = new ArrayList<>(resultSet.size());
         for (MatchResult matchResult : resultSet) {
@@ -179,12 +273,12 @@ public class RegionMatcher {
         return resultList;
     }
 
-    private static List<MatchResult> doMatch(String province,
-                                             String city,
-                                             String district) {
-        List<MatchResult> resultList = processMatch(province, city, district);
+    private static List<MatchResult> detailMatch(String province,
+                                                 String city,
+                                                 String district) {
+        List<MatchResult> resultList = processDetailMatch(province, city, district);
         if (resultList.isEmpty() && removeSuffix) {
-            resultList = processMatch(removeProvinceSuffix(province),
+            resultList = processDetailMatch(removeProvinceSuffix(province),
                     removeCitySuffix(city),
                     removeDistrictSuffix(district));
         }
@@ -222,9 +316,9 @@ public class RegionMatcher {
                 .replace("镇", "");
     }
 
-    private static List<MatchResult> processMatch(String province,
-                                                  String city,
-                                                  String district) {
+    private static List<MatchResult> processDetailMatch(String province,
+                                                        String city,
+                                                        String district) {
         Set<Integer> resultSet = new HashSet<>();
         Set<Integer> provinceSet = searchIndex(province, provinceMap);
         if (!provinceSet.isEmpty()) {
@@ -526,6 +620,7 @@ public class RegionMatcher {
             // 距离升序
             return distance1 > distance2 ? 1 : -1;
         }
+
     }
 
     private static boolean isEmpty(String str) {
