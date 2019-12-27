@@ -351,21 +351,22 @@ public class RegionMatcher {
     }
 
     private static Set<Integer> searchIndex(String str,
-                                            Map<Character, Set<Integer>> map) {
+                                         Map<Character, Set<Integer>> map) {
         if (isEmpty(str)) {
             return Collections.emptySet();
         }
-        Set<Integer> set = new HashSet<>();
-        for (Character c : str.toCharArray()) {
-            Set<Integer> matchedSet = map.get(c);
-            if (matchedSet == null) {
-                continue;
+        char[] chars = str.toCharArray();
+        Set<Integer> matchedSet = map.get(chars[0]);
+        if (matchedSet == null || matchedSet.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<Integer> set = new HashSet<>(matchedSet);
+        for (int i = 1; i < chars.length; i++) {
+            matchedSet = map.get(chars[i]);
+            if (matchedSet == null || set.isEmpty()) {
+                return Collections.emptySet();
             }
-            if (set.isEmpty()) {
-                set.addAll(matchedSet);
-            } else {
-                set.retainAll(matchedSet);
-            }
+            set.retainAll(matchedSet);
         }
         return set;
     }
