@@ -15,28 +15,17 @@ import java.util.*;
  **/
 public class RegionMatcher {
     @Setter
-    private static boolean compareImportance = true;
+    private boolean compareImportance = true;
     @Setter
-    private static boolean matchUnavailable = false;
+    private boolean matchUnavailable = false;
     @Setter
-    private static boolean fitUnavailable = true;
+    private boolean fitUnavailable = true;
     @Setter
-    private static boolean removeSuffix = true;
+    private boolean removeSuffix = true;
     @Setter
-    private static boolean shuffle = true;
+    private boolean shuffle = true;
 
-    private RegionMatcher() {
-    }
-
-    private static Map<Integer, Region> regionMap = new HashMap<>();
-    private static Map<Character, Set<Integer>> provinceMap = new HashMap<>();
-    private static Map<Character, Set<Integer>> cityMap = new HashMap<>();
-    private static Map<Character, Set<Integer>> districtMap = new HashMap<>();
-    private static Map<Character, Set<Integer>> fullMap = new HashMap<>();
-
-    private static RegionComparator defaultComparator = new RegionComparator(-1D, -1D);
-
-    static {
+    public RegionMatcher() {
         InputStream inputStream = RegionMatcher.class.getClassLoader()
                 .getResourceAsStream("region.csv");
         assert inputStream != null;
@@ -73,16 +62,15 @@ public class RegionMatcher {
         }
     }
 
-    public static void init() {
-        new RegionMatcher();
-        compareImportance = true;
-        matchUnavailable = false;
-        fitUnavailable = true;
-        removeSuffix = true;
-        shuffle = true;
-    }
+    private Map<Integer, Region> regionMap = new HashMap<>();
+    private Map<Character, Set<Integer>> provinceMap = new HashMap<>();
+    private Map<Character, Set<Integer>> cityMap = new HashMap<>();
+    private Map<Character, Set<Integer>> districtMap = new HashMap<>();
+    private Map<Character, Set<Integer>> fullMap = new HashMap<>();
 
-    public static MatchResult byCode(int code) {
+    private RegionComparator defaultComparator = new RegionComparator(-1D, -1D);
+
+    public MatchResult byCode(int code) {
         Region region = regionMap.get(code);
         MatchResult matchResult = new MatchResult();
         if (region != null) {
@@ -92,13 +80,13 @@ public class RegionMatcher {
         return matchResult;
     }
 
-    public static MatchResult byDetail(String province,
+    public MatchResult byDetail(String province,
                                        String city,
                                        String district) {
         return byDetail(province, city, district, -1D, -1D);
     }
 
-    public static MatchResult byDetail(String province,
+    public MatchResult byDetail(String province,
                                        String city,
                                        String district,
                                        final double longitude,
@@ -110,19 +98,19 @@ public class RegionMatcher {
         return chooseResult(resultList, longitude, latitude);
     }
 
-    public static MatchResult byInput(String input) {
+    public MatchResult byInput(String input) {
         return byInput(input, -1D, -1D);
     }
 
 
-    public static MatchResult byInput(String input,
+    public MatchResult byInput(String input,
                                       double longitude,
                                       double latitude) {
         List<MatchResult> resultList = inputMatch(input);
         return chooseResult(resultList, longitude, latitude);
     }
 
-    private static MatchResult chooseResult(List<MatchResult> resultList,
+    private MatchResult chooseResult(List<MatchResult> resultList,
                                             double longitude,
                                             double latitude) {
         if (resultList.isEmpty()) {
@@ -153,7 +141,7 @@ public class RegionMatcher {
         return matchResult;
     }
 
-    private static List<MatchResult> inputMatch(String input) {
+    private List<MatchResult> inputMatch(String input) {
         Set<Integer> targetSet = searchIndex(input, fullMap);
         if (targetSet.isEmpty()) {
             return Collections.emptyList();
@@ -207,7 +195,7 @@ public class RegionMatcher {
         return resultList;
     }
 
-    private static MatchResult calcProbability(Region region,
+    private MatchResult calcProbability(Region region,
                                                String matched,
                                                int cityOrder,
                                                int districtOrder,
@@ -229,7 +217,7 @@ public class RegionMatcher {
     }
 
     @SuppressWarnings("ConstantConditions")
-    private static List<MatchResult> shuffleMatch(String province,
+    private List<MatchResult> shuffleMatch(String province,
                                                   String city,
                                                   String district) {
         boolean hasProvince = !isEmpty(province);
@@ -273,7 +261,7 @@ public class RegionMatcher {
         return resultList;
     }
 
-    private static List<MatchResult> detailMatch(String province,
+    private List<MatchResult> detailMatch(String province,
                                                  String city,
                                                  String district) {
         List<MatchResult> resultList = processDetailMatch(province, city, district);
@@ -285,7 +273,7 @@ public class RegionMatcher {
         return resultList;
     }
 
-    private static String removeProvinceSuffix(String province) {
+    private String removeProvinceSuffix(String province) {
         return province.replace("省", "")
                 .replace("市", "")
                 .replace("自治区", "")
@@ -294,7 +282,7 @@ public class RegionMatcher {
                 .replace("地区", "");
     }
 
-    private static String removeCitySuffix(String city) {
+    private String removeCitySuffix(String city) {
         return city.replace("市", "")
                 .replace("县", "")
                 .replace("岛", "")
@@ -304,7 +292,7 @@ public class RegionMatcher {
                 .replace("地方", "");
     }
 
-    private static String removeDistrictSuffix(String district) {
+    private String removeDistrictSuffix(String district) {
         return district.replace("区", "")
                 .replace("乡", "")
                 .replace("县", "")
@@ -316,7 +304,7 @@ public class RegionMatcher {
                 .replace("镇", "");
     }
 
-    private static List<MatchResult> processDetailMatch(String province,
+    private List<MatchResult> processDetailMatch(String province,
                                                         String city,
                                                         String district) {
         Set<Integer> resultSet = new HashSet<>();
@@ -350,7 +338,7 @@ public class RegionMatcher {
         return matchResults;
     }
 
-    private static Set<Integer> searchIndex(String str,
+    private Set<Integer> searchIndex(String str,
                                          Map<Character, Set<Integer>> map) {
         if (isEmpty(str)) {
             return Collections.emptySet();
@@ -371,7 +359,7 @@ public class RegionMatcher {
         return set;
     }
 
-    private static MatchResult calcProbability(Region region,
+    private MatchResult calcProbability(Region region,
                                                String province,
                                                String city,
                                                String district) {
@@ -429,7 +417,7 @@ public class RegionMatcher {
      * @param input 子串
      * @return 是否按顺序
      */
-    private static boolean checkOrder(String full, String input) {
+    private boolean checkOrder(String full, String input) {
         char[] fullChars = full.toCharArray();
         char[] inputChars = input.toCharArray();
         int position = 0;
@@ -444,7 +432,7 @@ public class RegionMatcher {
         return false;
     }
 
-    private static double calcWordProbability(String full, String input) {
+    private double calcWordProbability(String full, String input) {
         // 用编辑距离求概率，编辑距离相对最大编辑距离（最长的句子长度）越小，概率越高
         if (checkOrder(full, input)) {
             return 1 - (editDistance(full, input)
@@ -461,7 +449,7 @@ public class RegionMatcher {
      * @param word2 词1
      * @return 编辑距离
      */
-    private static int editDistance(String word1, String word2) {
+    private int editDistance(String word1, String word2) {
         int n = word1.length();
         int m = word2.length();
         if (n * m == 0) {
@@ -488,7 +476,7 @@ public class RegionMatcher {
         return d[n][m];
     }
 
-    private static Region loadRegion(String line) {
+    private Region loadRegion(String line) {
         String[] split = line.split(",");
         Region region = new Region();
         region.setCode(Integer.parseInt(split[0]));
@@ -510,7 +498,7 @@ public class RegionMatcher {
         return region;
     }
 
-    private static void buildIndex(int regionCode,
+    private void buildIndex(int regionCode,
                                    String str,
                                    Map<Character, Set<Integer>> map) {
         if (isEmpty(str)) {
@@ -528,7 +516,7 @@ public class RegionMatcher {
     }
 
     @AllArgsConstructor
-    private static class RegionComparator implements Comparator<MatchResult> {
+    private class RegionComparator implements Comparator<MatchResult> {
         private double longitude;
         private double latitude;
 
@@ -551,7 +539,7 @@ public class RegionMatcher {
             return result;
         }
 
-        private static int compareProbability(MatchResult o1, MatchResult o2) {
+        private int compareProbability(MatchResult o1, MatchResult o2) {
             if (o2.getProbability() == o1.getProbability()) {
                 return 0;
             } else {
@@ -559,7 +547,7 @@ public class RegionMatcher {
             }
         }
 
-        private static int compareAvailableUntil(MatchResult o1, MatchResult o2) {
+        private int compareAvailableUntil(MatchResult o1, MatchResult o2) {
             if (o1.getRegion().getAvailableUntil().equals(o2.getRegion().getAvailableUntil())) {
                 return 0;
             } else {
@@ -580,7 +568,7 @@ public class RegionMatcher {
             }
         }
 
-        private static int compareImportance(MatchResult o1, MatchResult o2) {
+        private int compareImportance(MatchResult o1, MatchResult o2) {
             int code1 = o1.getRegion().getCode() % 10000;
             int code2 = o2.getRegion().getCode() % 10000;
             if (code1 == code2) {
@@ -598,7 +586,7 @@ public class RegionMatcher {
             return code1 > code2 ? 1 : -1;
         }
 
-        private static boolean isSpecialCity(int cityCode) {
+        private boolean isSpecialCity(int cityCode) {
             // 北京、天津、上海、重庆、广州、深圳优先
             return cityCode == 110000 || cityCode == 110100
                     || cityCode == 120000 || cityCode == 120100
@@ -607,7 +595,7 @@ public class RegionMatcher {
                     || cityCode == 440100 || cityCode == 440300;
         }
 
-        private static int compareDistance(MatchResult o1,
+        private int compareDistance(MatchResult o1,
                                            MatchResult o2,
                                            double longitude,
                                            double latitude) {
@@ -624,7 +612,7 @@ public class RegionMatcher {
 
     }
 
-    private static boolean isEmpty(String str) {
+    private boolean isEmpty(String str) {
         return str == null || "".equals(str);
     }
 }
